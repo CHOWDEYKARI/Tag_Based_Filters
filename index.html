@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recording Toggle Switch Button</title>
+  <style>
+    * {
+      border: 0;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --hue: 223;
+      --red: hsl(3, 90%, 50%);
+      --white: hsl(0, 0%, 100%);
+      --primary: hsl(var(--hue), 90%, 50%);
+      --primary-t: hsla(var(--hue), 90%, 50%, 0);
+      --gray1: hsl(var(--hue), 10%, 90%);
+      --gray3: hsl(var(--hue), 10%, 70%);
+      --gray9: hsl(var(--hue), 10%, 10%);
+      --trans-dur: 0.3s;
+      --trans-timing: cubic-bezier(0.65, 0, 0.35, 1);
+      font-size: calc(28px + (60 - 28) * (100vw - 320px) / (3840 - 320));
+    }
+
+    body, button {
+      color: var(--gray9);
+      font: 1em/1.5 "DM Sans", sans-serif;
+      transition: background-color var(--trans-dur), color var(--trans-dur);
+    }
+
+    body {
+      background-color: var(--gray1);
+    }
+
+    .recorder {
+      background-color: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      margin: auto;
+      outline: transparent;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      -webkit-appearance: none;
+      appearance: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .recorder__label-start,
+    .recorder__label-end {
+      display: block;
+      position: relative;
+    }
+
+    .recorder__label-start,
+    .recorder__label-end-text {
+      transition: opacity var(--trans-dur);
+    }
+
+    .recorder__label-start {
+      margin-inline: 0 0.5em;
+    }
+
+    .recorder__label-end {
+      margin-inline: 0.5em 0;
+    }
+
+    .recorder__label-end-text {
+      opacity: 0.4;
+    }
+
+    .recorder__label-end-text + .recorder__label-end-text {
+      opacity: 0;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    .recorder__switch {
+      background-color: var(--white);
+      border-radius: 0.75em;
+      box-shadow: 0 0 0 0.125em var(--primary-t), 0 0.25em 0.25em rgba(0, 0, 0, 0.1);
+      display: flex;
+      padding: 0.25em;
+      width: 2.5em;
+      height: 1.5em;
+    }
+
+    .recorder__switch, .recorder__switch-handle {
+      transition: background-color var(--trans-dur), box-shadow var(--trans-dur), transform var(--trans-dur) var(--trans-timing), transform-origin var(--trans-dur) var(--trans-timing);
+    }
+
+    .recorder__switch-handle {
+      background-color: var(--gray3);
+      border-radius: 50%;
+      display: block;
+      transform-origin: 0 0.5em;
+      width: 1em;
+      height: 1em;
+    }
+
+    .recorder__timer {
+      display: block;
+      overflow: visible;
+      width: 100%;
+      height: auto;
+    }
+
+    .recorder__timer-ring {
+      transition: r var(--trans-dur) var(--trans-timing), stroke-dasharray var(--trans-dur) var(--trans-timing), stroke-dashoffset var(--trans-dur) var(--trans-timing), stroke-width var(--trans-dur) var(--trans-timing);
+    }
+
+    .recorder:focus-visible .recorder__switch {
+      box-shadow: 0 0 0 0.125em var(--primary), 0 0.25em 0.25em rgba(0, 0, 0, 0.1);
+    }
+
+    .recorder[aria-pressed=true] .recorder__label-start {
+      opacity: 0.4;
+    }
+
+    .recorder[aria-pressed=true] .recorder__label-end-text {
+      opacity: 0;
+    }
+
+    .recorder[aria-pressed=true] .recorder__label-end-text + .recorder__label-end-text {
+      opacity: 1;
+    }
+
+    .recorder[aria-pressed=true] .recorder__switch-handle {
+      background-color: var(--red);
+      transform: translateX(100%);
+    }
+
+    .recorder[aria-pressed=true] .recorder__timer-ring {
+      r: 6.5px;
+      stroke-width: 3px;
+    }
+
+    .recorder[aria-pressed=true]:active .recorder__switch-handle {
+      transform: translateX(100%) scaleX(1.5);
+    }
+  </style>
+</head>
+<body>
+  <button id="recorder" class="recorder" type="button" aria-pressed="false">
+    <span class="recorder__label-start" aria-hidden="true">Stop</span>
+    <span class="recorder__switch">
+      <span class="recorder__switch-handle">
+        <svg class="recorder__timer" viewBox="0 0 16 16" width="16px" height="16px" aria-hidden="true">
+          <g fill="none" stroke-linecap="round" stroke-width="0" transform="rotate(-90,8,8)">
+            <circle class="recorder__timer-ring" stroke="hsla(0,0%,100%,0.3)" cx="8" cy="8" r="8"></circle>
+            <circle class="recorder__timer-ring" id="timer-ring" stroke="hsla(0,0%,100%,0.5)" cx="8" cy="8" r="8"></circle>
+          </g>
+        </svg>
+      </span>
+    </span>
+    <span class="recorder__label-end" aria-hidden="true">
+      <span class="recorder__label-end-text">Record</span>
+      <span class="recorder__label-end-text" id="time">00:00</span>
+    </span>
+  </button>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const recorderButton = document.getElementById('recorder');
+      const timeDisplay = document.getElementById('time');
+      const timerRing = document.getElementById('timer-ring');
+      const timeMax = 60;
+      let recording = false;
+      let time = 0;
+      let timeStopped = 0;
+      let intervalId;
+
+      function updateTimerDisplay() {
+        const minutes = `0${Math.floor(time / 60)}`.slice(-2);
+        const seconds = `0${time % 60}`.slice(-2);
+        timeDisplay.textContent = `${minutes}:${seconds}`;
+      }
+
+      function updateProgress() {
+        const circumference = recording ? 40.84 : 50.27;
+        const circumferencePart = recording ? 1 - (time / timeMax) : 1;
+        const strokeDashArray = `${circumference} ${circumference}`;
+        const strokeDashOffset = +(circumference * circumferencePart).toFixed(2);
+        timerRing.style.strokeDasharray = strokeDashArray;
+        timerRing.style.strokeDashoffset = strokeDashOffset;
+      }
+
+      function startRecording() {
+        time = 0;
+        timeStopped = 0;
+        updateTimerDisplay();
+        updateProgress();
+        intervalId = setInterval(() => {
+          time++;
+          timeStopped++;
+          updateTimerDisplay();
+          updateProgress();
+          if (time >= timeMax) {
+            stopRecording();
+          }
+        }, 1000);
+      }
+
+      function stopRecording() {
+        clearInterval(intervalId);
+        updateProgress();
+      }
+
+      recorderButton.addEventListener('click', function () {
+        recording = !recording;
+        recorderButton.setAttribute('aria-pressed', recording);
+
+        if (recording) {
+          startRecording();
+        } else {
+          stopRecording();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
